@@ -263,10 +263,18 @@ abstract class FunctionLikeAnalyzer extends SourceAnalyzer
 
                     $statements_analyzer->data_flow_graph->addNode($use_assignment);
 
-                    $context->vars_in_scope[$use_var_id] =
-                        $context->vars_in_scope[$use_var_id]->addParentNodes(
-                            [$use_assignment->id => $use_assignment],
-                        );
+                    if (isset($context->vars_in_scope[$use_var_id])) {
+                        $context->vars_in_scope[$use_var_id] =
+                            $context->vars_in_scope[$use_var_id]->addParentNodes(
+                                [$use_assignment->id => $use_assignment],
+                            );
+                    } else {
+                        $context->vars_in_scope[$use_var_id] = new Union([new TMixed()]);
+                        $context->vars_in_scope[$use_var_id] =
+                            $context->vars_in_scope[$use_var_id]->addParentNodes(
+                                [$use_assignment->id => $use_assignment],
+                            );
+                    }
                 }
 
                 if ($use->byRef) {
@@ -378,8 +386,22 @@ abstract class FunctionLikeAnalyzer extends SourceAnalyzer
             );
 
             foreach ($byref_uses as $var_id => $_) {
-                $byref_vars[$var_id] = $ref_context->vars_in_scope[$var_id];
-                $context->vars_in_scope[$var_id] = $ref_context->vars_in_scope[$var_id];
+                if (isset($ref_context->vars_in_scope[$var_id])) {
+                    $byref_vars[$var_id] = $ref_context->vars_in_scope[$var_id];
+                    $context->vars_in_scope[$var_id] = $ref_context->vars_in_scope[$var_id];
+                } else {
+                    $fallback_type = new Union([new TMixed()], ['by_ref' => true]);
+
+                    if (isset($context->vars_in_scope[$var_id])) {
+                        $original_type = $context->vars_in_scope[$var_id];
+                        $byref_type = $original_type->setProperties(['by_ref' => true]);
+                    } else {
+                        $byref_type = $fallback_type;
+                    }
+
+                    $byref_vars[$var_id] = $byref_type;
+                    $context->vars_in_scope[$var_id] = $byref_type;
+                }
             }
         }
 
@@ -2034,7 +2056,7 @@ abstract class FunctionLikeAnalyzer extends SourceAnalyzer
                     $this->getSuppressedIssues(),
                     true,
                 );
-                    
+
                 if ($codebase->alter_code
                     && $storage->stmt_location !== null
                     && isset($this->getProjectAnalyzer()->getIssuesToFix()['MissingOverrideAttribute'])
