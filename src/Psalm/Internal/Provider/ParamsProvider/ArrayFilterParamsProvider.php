@@ -112,7 +112,7 @@ final class ArrayFilterParamsProvider implements FunctionParamsProviderInterface
                 $call_args[0]->value,
                 null,
                 $statements_source,
-            );
+            ) ?? '';
 
             $first_arg_type = $event->getContext()->vars_in_scope[$extended_var_id] ?? null;
         }
@@ -160,6 +160,10 @@ final class ArrayFilterParamsProvider implements FunctionParamsProviderInterface
                     null,
                     $statements_source,
                 );
+
+                if ($extended_var_id === null) {
+                    return null;
+                }
 
                 $mode_type = $event->getContext()->vars_in_scope[$extended_var_id] ?? null;
             }
